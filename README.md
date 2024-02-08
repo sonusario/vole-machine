@@ -7,10 +7,11 @@ A simple virtual machine for educational purposes.
 
 ## [Table of Contents](#table-of-contents)
 
-- [The Architecture](#the-architecture)
-- [The Instruction Set](#the-instruction-set)
-- [Program Walkthroughs](#program-walkthroughs)
-  - [Program A](#program-a)
+0. [The Architecture](#the-architecture)
+1. [The Instruction Set](#the-instruction-set)
+2. [Program Walkthroughs](#program-walkthroughs)
+   1. [Program A](#program-a)
+   2. [Program B](#program-b)
 
 ---
 ---
