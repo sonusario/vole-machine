@@ -15,9 +15,96 @@ const SLEEP_DURATION: Duration = Duration::from_millis(500);
 const MAX_HEAT: HeatLevel = 5;
 
 fn main() {
+    introduction();
     let mut cpu = Cpu::new();
-    cpu.load_program(sample_program("B"));
-    cpu.run();
+    loop {
+        cpu.import(program());
+        cpu.run();
+
+        if prompt("Would you like to run another program? (y/n)\n> ",
+            &mut |input, modify: &mut bool| -> bool {
+                *modify = matches!(input, 'n' | 'N');
+                matches!(input, 'y' | 'n' | 'Y' | 'N')
+            }
+        ) {
+            break;
+        }
+    }
+}
+
+fn introduction() {
+    Terminal::clear();
+    println!("{0:=^33} Vole-Machine {0:=^33}", "");
+    println!("A simple CPU emulator written in Rust.");
+    println!("{:>80}", "1 of 4");
+    Terminal::continue_prompt();
+    Terminal::clear();
+    
+    println!("{line1}\n{line2}\n{line3}",
+        line1 = "When printing the memory and registers, the color of the text",
+        line2 = "indicates the \"heat\" of the memory or register. The hotter the",
+        line3 = "color, the more recent the memory or register was accessed.",
+    );
+    println!("{:>80}", "2 of 4");
+    Terminal::continue_prompt();
+    Terminal::clear();
+
+    let (w, b, c, g, y, r, m, ra) = (
+        Terminal::get_fg_color(Foreground::White),
+        Terminal::get_fg_color(Foreground::Blue),
+        Terminal::get_fg_color(Foreground::Cyan),
+        Terminal::get_fg_color(Foreground::Green),
+        Terminal::get_fg_color(Foreground::Yellow),
+        Terminal::get_fg_color(Foreground::Red),
+        Terminal::get_fg_color(Foreground::Magenta),
+        Terminal::get_reset_all()
+    );
+
+    let c_width = 8;
+    let t_width = 9;
+    
+    println!("\nColor Key:");
+    println!("  {w}{color:<c_width$}{ra}::  {temp:<t_width$}::  {desc}",
+        color = "White",
+        temp = "Coldest",
+        desc = "Last modified at least 6 cycles ago or never",
+    );
+    println!("  {b}{color:<c_width$}{ra}::  {temp:<t_width$}::  {desc}",
+        color = "Blue",
+        temp = "Cold",
+        desc = "Last modified 5 cycles ago",
+    );
+    println!("  {c}{color:<c_width$}{ra}::  {temp:<t_width$}::  {desc}",
+        color = "Cyan",
+        temp = "Cool",
+        desc = "Last modified 4 cycles ago",
+    );
+    println!("  {g}{color:<c_width$}{ra}::  {temp:<t_width$}::  {desc}",
+        color = "Green",
+        temp = "Warm",
+        desc = "Last modified 3 cycles ago",
+    );
+    println!("  {y}{color:<c_width$}{ra}::  {temp:<t_width$}::  {desc}",
+        color = "Yellow",
+        temp = "Hot",
+        desc = "Last modified 2 cycles ago",
+    );
+    println!("  {r}{color:<c_width$}{ra}::  {temp:<t_width$}::  {desc}",
+        color = "Red",
+        temp = "Hottest",
+        desc = "Last modified 1 cycle ago",
+    );
+    println!("{:>80}", "3 of 4");
+    Terminal::continue_prompt();
+    Terminal::clear();
+
+    println!("{}\n{}{m}Magenta{ra}",
+        "The register the program counter is pointing to is indicated by",
+        "an asterisk (*) next to the value in memory colored in ",
+    );
+    println!("{:>80}", "4 of 4");
+    Terminal::continue_prompt();
+    Terminal::clear();
 }
 
 struct Cpu {
@@ -293,7 +380,7 @@ impl Cpu {
         }  
     }
     
-    fn load_program(&mut self, program: Program) {
+    fn import(&mut self, program: Program) {
         match program {
             Program {name, code, start_address} if name != String::new() => {
                 // Set the program name
@@ -375,9 +462,13 @@ impl Terminal {
     fn _reset_all() {
         print!("\x1B[0m");
     }
+
+    fn continue_prompt() {
+        prompt("Press Enter to continue...", &mut |_: &String, _: &mut ()| true);
+    }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 struct Program {
     name: String,
     code: Vec<u8>,
@@ -394,47 +485,98 @@ impl Program {
     }
 }
 
+fn program() -> Program {
+    let library = ProgramLibrary::init();
 
-fn sample_program(q: &str) -> Program {
-    let program = [
-        Program::new(
-            String::from("A"),
+    let text = "Choose a program to run:\n";
+    let text = format!("{}\t{}", text, library.get_names().join("\n\t"));
+    let text = format!("{}\n> ", text);
+
+    let mut valid = |input: &String, modify: &mut String| -> bool {
+        *modify = input.clone();
+        library.get_names().contains(&input)
+    };
+    let program_name = prompt(text.as_str(), &mut valid);
+    library.retrieve(program_name)
+}
+
+fn prompt<T, U>(text: &str, valid: &mut dyn FnMut(&U, &mut T) -> bool) -> T
+where
+    T: Default,
+    U: std::str::FromStr,
+{
+    let mut result = Default::default();
+    loop {
+        print!("{}", text);
+        let mut input = String::new();
+        std::io::stdout().flush().unwrap();
+        std::io::stdin().read_line(&mut input).unwrap();
+        match input.trim().parse() {
+            Ok(parsed) if valid(&parsed, &mut result) => {
+                return result;
+            }
+            _ => println!("Invalid input. Please try again..."),
+        }
+    }
+}
+
+struct ProgramLibrary {
+    programs: Vec<Program>,
+}
+
+impl ProgramLibrary {
+    fn get_names(&self) -> Vec<String> {
+        self.programs.iter().map(|program| program.name.clone()).collect()
+    }
+
+    fn retrieve(&self, name: String) -> Program {
+        for program in &self.programs {
+            if program.name == name {
+                return program.clone();
+            }
+        }
+
+        unreachable!("Program not found even though input matched an existing program.");
+    }
+
+    fn init() -> ProgramLibrary {
+        ProgramLibrary {
+            programs:
             vec![
-                /*           | m0x30, m0x31 | */ 0x20, 0x03, // Load 0x03 into r0
-                /*           | m0x32, m0x33 | */ 0x21, 0x01, // Load 0x01 into r1
-                /*           | m0x34, m0x35 | */ 0x22, 0x00, // Load 0x00 into r2
-                /*           | m0x36, m0x37 | */ 0x23, 0x10, // Load 0x10 into r3 // 0x10 == 16
-                /* 'B, 'C    | m0x38, m0x39 | */ 0x14, 0x00, // Load from m0x00 into r4
-                /*   , 'D    | m0x3A, m0x3B | */ 0x34, 0x10, // Store from r4 into m0x10 // m0x10 == memory[16]
-                /*           | m0x3C, m0x3D | */ 0x52, 0x21, // r2 + r1 into r2
-                /*           | m0x3E, m0x3F | */ 0x53, 0x31, // r3 + r1 into r3
-                /* UPDATE C  | m0x40, m0x41 | */ 0x32, 0x39, // Store from r2 into m0x39 // m0x39 == memory[57]
-                /* UPDATE D  | m0x42, m0x43 | */ 0x33, 0x3B, // Store from r3 into m0x3B // m0x3B == memory[59]
-                /* GOES TO A | m0x44, m0x45 | */ 0xB2, 0x48, // Jump to m0x48 if r2 == r0 // m0x48 == memory[72]
-                /* GOES TO B | m0x46, m0x47 | */ 0xB0, 0x38, // Jump to m0x38 if r0 == r0 // m0x38 == memory[56]
-                /* 'A        | m0x48, m0x49 | */ 0xC0, 0x00, // Halt
-            ],
-            0x30, // Load program at m0x30
-        ),
-
-        Program::new(
-            String::from("B"),
-            vec![
-                /* m0x00, m0x01 */ 0x20, 0x04, // Load 0x04 into r0
-                /* m0x02, m0x03 */ 0x21, 0x01, // Load 0x01 into r1
-                /* m0x04, m0x05 */ 0x40, 0x12, // Move from r1 to r2
-                /* m0x06, m0x07 */ 0x51, 0x12, // r1 + r2 into r1
-                /* m0x08, m0x09 */ 0xB1, 0x0C, // Jump to m0x0C if r1 == r0
-                /* m0x0A, m0x0B */ 0xB0, 0x06, // Jump to m0x06 if r0 == r0
-                /* m0x0C, m0x0D */ 0xC0, 0x00, // Halt
-            ],
-            0x00, // Load program at m0x00
-        )
-    ];
-
-    match q {
-        "A" => program[0].clone(),
-        "B" => program[1].clone(),
-        _ => panic!("Invalid program name"),
+                Program::new(
+                    String::from("A"),
+                    vec![
+                        /*           | m0x30, m0x31 | */ 0x20, 0x03, // | 0x2003 | // Load 0x03 into r0
+                        /*           | m0x32, m0x33 | */ 0x21, 0x01, // | 0x2101 | // Load 0x01 into r1
+                        /*           | m0x34, m0x35 | */ 0x22, 0x00, // | 0x2200 | // Load 0x00 into r2
+                        /*           | m0x36, m0x37 | */ 0x23, 0x10, // | 0x2310 | // Load 0x10 into r3 // 0x10 == 16
+                        /* 'B, 'C    | m0x38, m0x39 | */ 0x14, 0x00, // | 0x1400 | // Load from m0x00 into r4
+                        /*   , 'D    | m0x3A, m0x3B | */ 0x34, 0x10, // | 0x3410 | // Store from r4 into m0x10 // m0x10 == memory[16]
+                        /*           | m0x3C, m0x3D | */ 0x52, 0x21, // | 0x5221 | // r2 + r1 into r2
+                        /*           | m0x3E, m0x3F | */ 0x53, 0x31, // | 0x5331 | // r3 + r1 into r3
+                        /* UPDATE C  | m0x40, m0x41 | */ 0x32, 0x39, // | 0x3239 | // Store from r2 into m0x39 // m0x39 == memory[57]
+                        /* UPDATE D  | m0x42, m0x43 | */ 0x33, 0x3B, // | 0x333B | // Store from r3 into m0x3B // m0x3B == memory[59]
+                        /* GOES TO A | m0x44, m0x45 | */ 0xB2, 0x48, // | 0xB248 | // Jump to m0x48 if r2 == r0 // m0x48 == memory[72]
+                        /* GOES TO B | m0x46, m0x47 | */ 0xB0, 0x38, // | 0xB038 | // Jump to m0x38 if r0 == r0 // m0x38 == memory[56]
+                        /* 'A        | m0x48, m0x49 | */ 0xC0, 0x00, // | 0xC000 | // Halt
+                    ],
+                    0x30, // Load program at m0x30
+                ),
+        
+                Program::new(
+                    String::from("B"),
+                    vec![
+                        /* m0x00, m0x01 */ 0x20, 0x04, // | 0x2004 | // Load 0x04 into r0
+                        /* m0x02, m0x03 */ 0x21, 0x01, // | 0x2101 | // Load 0x01 into r1
+                        /* m0x04, m0x05 */ 0x40, 0x12, // | 0x4012 | // Move from r1 to r2
+                        /* m0x06, m0x07 */ 0x51, 0x12, // | 0x5112 | // r1 + r2 into r1
+                        /* m0x08, m0x09 */ 0xB1, 0x0C, // | 0xB10C | // Jump to m0x0C if r1 == r0
+                        /* m0x0A, m0x0B */ 0xB0, 0x06, // | 0xB006 | // Jump to m0x06 if r0 == r0
+                        /* m0x0C, m0x0D */ 0xC0, 0x00, // | 0xC000 | // Halt
+                    ],
+                    0x00, // Load program at m0x00
+                )
+            ]
+        }
     }
 }
