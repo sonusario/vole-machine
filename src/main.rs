@@ -63,7 +63,7 @@ fn introduction() {
     let c_width = 8;
     let t_width = 9;
     
-    println!("\nColor Key:");
+    println!("Color Key:");
     println!("  {w}{color:<c_width$}{ra}::  {temp:<t_width$}::  {desc}",
         color = "White",
         temp = "Coldest",
