@@ -99,7 +99,7 @@ fn introduction() {
     Terminal::clear();
 
     println!("{}\n{}{m}Magenta{ra}",
-        "The register the program counter is pointing to is indicated by",
+        "The memory address the program counter is pointing to is indicated by",
         "an asterisk (*) next to the value in memory colored in ",
     );
     println!("{:>80}", "4 of 4");
