@@ -10,7 +10,6 @@ type Address = u8;
 type HeatLevel = u8;
 
 // Sleep for 0.5 seconds
-const USER_ITERATED: bool = true;
 const SLEEP_DURATION: Duration = Duration::from_millis(500);
 const MAX_HEAT: HeatLevel = 5;
 
@@ -115,6 +114,7 @@ struct Cpu {
     pc: Address, // Program Counter
     program_name: String,
     cycles: u128,
+    user_iterated: bool,
 }
 
 impl Cpu {
@@ -127,10 +127,12 @@ impl Cpu {
             pc: 0,
             program_name: String::new(),
             cycles: 0,
+            user_iterated: false
         }
     }
 
     fn run(&mut self) {
+        self.update_user_iterated();
         let start_time = Instant::now();
 
         loop {
@@ -366,11 +368,11 @@ impl Cpu {
 
     fn print(&self) {
         Terminal::clear();
-        println!("\nProgram Cycles: {0:#02X}::{0}", self.cycles);
+        println!("\nCPU Cycles: {0:#02X}::{0}", self.cycles);
         println!("Program Counter: m{:#02X}", self.pc);
         self.print_registers();
         self.print_memory();
-        if USER_ITERATED {
+        if self.user_iterated {
             print!("Press Enter to continue...");
             std::io::stdout().flush().unwrap();
             let mut input = String::new();
@@ -378,6 +380,16 @@ impl Cpu {
         } else {
             thread::sleep(SLEEP_DURATION);
         }  
+    }
+
+    fn update_user_iterated(&mut self) {
+        self.user_iterated =
+            prompt("Would you like to manually iterate through the program? (y/n)\n> ",
+                &mut |input, modify: &mut bool| -> bool {
+                    *modify = matches!(input, 'y' | 'Y');
+                    matches!(input, 'y' | 'n' | 'Y' | 'N')
+                }
+            );
     }
     
     fn import(&mut self, program: Program) {
