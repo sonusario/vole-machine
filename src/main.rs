@@ -20,7 +20,7 @@ fn main() {
         cpu.import(program());
         cpu.run();
 
-        if prompt("Would you like to run another program? (y/n)\n> ",
+        if prompt("\nWould you like to run another program? (y/n)\n> ",
             &mut |input, modify: &mut bool| -> bool {
                 *modify = matches!(input, 'n' | 'N');
                 matches!(input, 'y' | 'n' | 'Y' | 'N')
@@ -106,6 +106,7 @@ fn introduction() {
     Terminal::clear();
 }
 
+#[derive(PartialEq, Eq)]
 struct Cpu {
     register: [u8; 16],
     heated_register: [HeatLevel; 16],
@@ -174,10 +175,7 @@ impl Cpu {
     }
 
     fn reset(&mut self) {
-        self.register = [0; 16];
-        self.memory = [0; 256];
-        self.pc = 0;
-        self.program_name = String::new();
+        *self = Cpu::new();
     }
 
     fn no_op(&mut self) {
@@ -368,7 +366,7 @@ impl Cpu {
 
     fn print(&self) {
         Terminal::clear();
-        println!("\nCPU Cycles: {0:#02X}::{0}", self.cycles);
+        println!("\nProgram's Used CPU Cycles: {0:#02X}::{0}", self.cycles);
         println!("Program Counter: m{:#02X}", self.pc);
         self.print_registers();
         self.print_memory();
@@ -384,7 +382,7 @@ impl Cpu {
 
     fn update_user_iterated(&mut self) {
         self.user_iterated =
-            prompt("Would you like to manually iterate through the program? (y/n)\n> ",
+            prompt("\nWould you like to manually iterate through the program? (y/n)\n> ",
                 &mut |input, modify: &mut bool| -> bool {
                     *modify = matches!(input, 'y' | 'Y');
                     matches!(input, 'y' | 'n' | 'Y' | 'N')
@@ -500,7 +498,7 @@ impl Program {
 fn program() -> Program {
     let library = ProgramLibrary::init();
 
-    let text = "Choose a program to run:\n";
+    let text = "\nChoose a program to run:\n";
     let text = format!("{}\t{}", text, library.get_names().join("\n\t"));
     let text = format!("{}\n> ", text);
 
