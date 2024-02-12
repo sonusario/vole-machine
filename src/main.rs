@@ -10,7 +10,7 @@ type Address = u8;
 type HeatLevel = u8;
 
 // Sleep for 0.5 seconds
-const SLEEP_DURATION: Duration = Duration::from_millis(500);
+const SLEEP_DURATION: Duration = Duration::from_millis(50);
 const MAX_HEAT: HeatLevel = 5;
 
 fn main() {
@@ -445,7 +445,10 @@ struct Terminal;
 #[allow(dead_code)]
 impl Terminal { 
     fn clear() {
-        print!("\x1Bc");
+        // print!("\x1Bc");
+        print!("\x1B[H");
+        println!("{}", format!("{}\n", " ".repeat(80)).repeat(40));
+        print!("\x1B[H");
     }
     
     fn erase_line_cr() {
@@ -466,7 +469,8 @@ impl Terminal {
     }
 
     fn get_reset_all() -> String {
-        String::from("\x1B[0m")
+        //String::from("\x1B[0m")
+        format!("\x1B[3{}m", Foreground::White as u8)
     }
 
     fn _reset_all() {
