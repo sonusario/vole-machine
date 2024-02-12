@@ -10,7 +10,7 @@ type Address = u8;
 type HeatLevel = u8;
 
 // Sleep for 0.5 seconds
-const SLEEP_DURATION: Duration = Duration::from_millis(50);
+const SLEEP_DURATION: Duration = Duration::from_millis(500);
 const MAX_HEAT: HeatLevel = 5;
 
 fn main() {
