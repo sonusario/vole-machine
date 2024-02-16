@@ -28,6 +28,8 @@ fn main() {
         ) {
             break;
         }
+
+        Terminal::clear();
     }
 }
 
@@ -386,17 +388,18 @@ impl Cpu {
                 self.print();
                 thread::sleep(SLEEP_DURATION);
             },
-            IterationFormat::NoPrint => {}
+            IterationFormat::NoCycles => {}
         }
     }
 
     fn update_iteration_format(&mut self) {
+        Terminal::clear();
         self.iterate_by =
         prompt(format!("\n{}{}{}{}\n> ",
-                "Would you like to iterate through the program manually?",
-                "\n\tEnter 'm' for manual",
-                "\n\tEnter 'a' for automatic",
-                "\n\tEnter 'n' for no print"
+                "How would you like to iterate through the program?",
+                "\n\tEnter 'm' for manual (you cycle the CPU)",
+                "\n\tEnter 'a' for automatic (shows every cycle)",
+                "\n\tEnter 'n' for no cycle (shows the final state of the CPU)",
             ).as_str(),
         &mut |input, modify| -> bool {
             match input {
@@ -409,7 +412,7 @@ impl Cpu {
                     true
                 },
                 'n' | 'N' => {
-                    *modify = IterationFormat::NoPrint;
+                    *modify = IterationFormat::NoCycles;
                     true
                 }
                 _ => false
@@ -440,7 +443,7 @@ impl Cpu {
 enum IterationFormat {
     User,
     Auto,
-    NoPrint
+    NoCycles,
 }
 
 impl std::default::Default for IterationFormat {
@@ -487,7 +490,7 @@ impl Terminal {
     fn clear() {
         // print!("\x1Bc");
         print!("\x1B[H");
-        println!("{}", format!("{}\n", " ".repeat(80)).repeat(40));
+        println!("{}", format!("{}\n", " ".repeat(80)).repeat(30));
         print!("\x1B[H");
     }
     
@@ -541,7 +544,8 @@ impl Program {
 
 fn program() -> Program {
     let library = ProgramLibrary::init();
-
+    
+    Terminal::clear();
     let text = "\nChoose a program to run:\n";
     let text = format!("{}\t{}", text, library.get_names().join("\n\t"));
     let text = format!("{}\n> ", text);
