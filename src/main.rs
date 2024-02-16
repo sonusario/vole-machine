@@ -115,7 +115,7 @@ struct Cpu {
     pc: Address, // Program Counter
     program_name: String,
     cycles: u128,
-    user_iterated: bool,
+    iterate_by: IterationFormat,
 }
 
 impl Cpu {
@@ -128,16 +128,16 @@ impl Cpu {
             pc: 0,
             program_name: String::new(),
             cycles: 0,
-            user_iterated: false
+            iterate_by: IterationFormat::Auto,
         }
     }
 
     fn run(&mut self) {
-        self.update_user_iterated();
+        self.update_iteration_format();
         let start_time = Instant::now();
 
         loop {
-            self.print();
+            self.print_iteration();
             self.cool_down();
             self.cycles += 1;
             
@@ -166,6 +166,7 @@ impl Cpu {
             }
         }
 
+        self.print();
         println!("\nProgram {} completed in {:.2} seconds.",
             self.program_name,
             start_time.elapsed().as_secs_f32()
@@ -363,31 +364,57 @@ impl Cpu {
 
         println!();
     }
-
+    
     fn print(&self) {
         Terminal::clear();
         println!("\nProgram's Used CPU Cycles: {0:#02X}::{0}", self.cycles);
         println!("Program Counter: m{:#02X}", self.pc);
         self.print_registers();
         self.print_memory();
-        if self.user_iterated {
-            print!("Press Enter to continue...");
-            std::io::stdout().flush().unwrap();
-            let mut input = String::new();
-            std::io::stdin().read_line(&mut input).unwrap();
-        } else {
-            thread::sleep(SLEEP_DURATION);
-        }  
     }
 
-    fn update_user_iterated(&mut self) {
-        self.user_iterated =
-            prompt("\nWould you like to manually iterate through the program? (y/n)\n> ",
-                &mut |input, modify: &mut bool| -> bool {
-                    *modify = matches!(input, 'y' | 'Y');
-                    matches!(input, 'y' | 'n' | 'Y' | 'N')
+    fn print_iteration(&self) {
+        match self.iterate_by {
+            IterationFormat::User => {
+                self.print();
+                print!("Press Enter to continue...");
+                let mut input = String::new();
+                std::io::stdout().flush().unwrap();
+                std::io::stdin().read_line(&mut input).unwrap();
+            },
+            IterationFormat::Auto => {
+                self.print();
+                thread::sleep(SLEEP_DURATION);
+            },
+            IterationFormat::NoPrint => {}
+        }
+    }
+
+    fn update_iteration_format(&mut self) {
+        self.iterate_by =
+        prompt(format!("\n{}{}{}{}\n> ",
+                "Would you like to iterate through the program manually?",
+                "\n\tEnter 'm' for manual",
+                "\n\tEnter 'a' for automatic",
+                "\n\tEnter 'n' for no print"
+            ).as_str(),
+        &mut |input, modify| -> bool {
+            match input {
+                'm' | 'M' => {
+                    *modify = IterationFormat::User;
+                    true
+                },
+                'a' | 'A' => {
+                    *modify = IterationFormat::Auto;
+                    true
+                },
+                'n' | 'N' => {
+                    *modify = IterationFormat::NoPrint;
+                    true
                 }
-            );
+                _ => false
+            }}
+        );
     }
     
     fn import(&mut self, program: Program) {
@@ -406,6 +433,19 @@ impl Cpu {
             },
             _ => unreachable!()
         }
+    }
+}
+
+#[derive(PartialEq, Eq)]
+enum IterationFormat {
+    User,
+    Auto,
+    NoPrint
+}
+
+impl std::default::Default for IterationFormat {
+    fn default() -> Self {
+        IterationFormat::Auto
     }
 }
 
@@ -587,6 +627,20 @@ impl ProgramLibrary {
                         /* m0x08, m0x09 */ 0xB1, 0x0C, // | 0xB10C | // Jump to m0x0C if r1 == r0
                         /* m0x0A, m0x0B */ 0xB0, 0x06, // | 0xB006 | // Jump to m0x06 if r0 == r0
                         /* m0x0C, m0x0D */ 0xC0, 0x00, // | 0xC000 | // Halt
+                    ],
+                    0x00, // Load program at m0x00
+                ),
+
+                Program::new(
+                    String::from("C"),
+                    vec![
+                        /* m0x00, m0x01 */ 0x25, 0x03,
+                        /* m0x02, m0x03 */ 0x20, 0xF9, 
+                        /* m0x04, m0x05 */ 0x53, 0x05, 
+                        /* m0x06, m0x07 */ 0x33, 0x00, 
+                        /* m0x08, m0x09 */ 0xC0, 0x00, 
+                        /* m0x0A, m0x0B */ 0xC0, 0x00, 
+                        /* m0x0C, m0x0D */ 0xC0, 0x00, 
                     ],
                     0x00, // Load program at m0x00
                 )
